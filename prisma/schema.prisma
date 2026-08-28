@@ -1,0 +1,197 @@
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id           String       @id @default(uuid())
+  name         String
+  email        String       @unique
+  role         String       // GOVERNMENT, STARTUP, EVALUATOR, DECISION_AUTHORITY, ADMIN
+  department   String?
+  startupName  String?
+  createdAt    DateTime     @default(now())
+  evaluations  Evaluation[]
+  decisions    Decision[]
+}
+
+model Department {
+  id          String   @id @default(uuid())
+  name        String
+  code        String   @unique
+  domain      String
+  state       String
+  city        String
+}
+
+model Startup {
+  id                 String       @id @default(uuid())
+  name               String
+  description        String
+  domain             String
+  technologies       String       // Comma separated or JSON string
+  location           String
+  teamSize           Int
+  stage              String       // Early, Seed, Growth, Scaled
+  yearsOperating     Int
+  previousProjects   String       // Text / JSON summary
+  certifications     String       // ISO 9001, DIPP, etc.
+  complianceStatus   String       // Fully Compliant, Verified, Pending
+  fundingInfo        String
+  solutionDescription String
+  contactEmail       String
+  matches            MatchScore[]
+  evaluations        Evaluation[]
+  pilots             Pilot[]
+}
+
+model Challenge {
+  id                     String       @id @default(uuid())
+  title                  String
+  problemDescription     String
+  departmentName         String
+  domain                 String
+  requiredTechnologies   String
+  budgetRange            String
+  location               String
+  eligibilityRequirements String
+  expectedOutcomes       String
+  pilotDuration          String
+  kpis                   String
+  status                 String       // DRAFT, OPEN, MATCHED, EVALUATING, PILOT_ACTIVE, COMPLETED
+  createdAt              DateTime     @default(now())
+  matches                MatchScore[]
+  evaluations            Evaluation[]
+  pilots                 Pilot[]
+}
+
+model MatchScore {
+  id                 String    @id @default(uuid())
+  challengeId        String
+  startupId          String
+  challenge          Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  startup            Startup   @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  totalScore         Int       // 0 - 100
+  domainScore        Int
+  techScore          Int
+  eligibilityScore   Int
+  experienceScore    Int
+  locationStageScore Int
+  matchedSkills      String    // JSON / string array
+  missingSkills      String    // JSON / string array
+  whyExplanation     String    // Multiline detailed markdown/text explanation
+  eligibilityStatus  String    // ELIGIBLE, NOT_ELIGIBLE, NEEDS_VERIFICATION
+  createdAt          DateTime  @default(now())
+}
+
+model Evaluation {
+  id                     String    @id @default(uuid())
+  challengeId            String
+  startupId              String
+  evaluatorId            String
+  challenge              Challenge @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  startup                Startup   @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  evaluator              User      @relation(fields: [evaluatorId], references: [id], onDelete: Cascade)
+  technicalFeasibility   Int       // Max 25
+  innovation             Int       // Max 20
+  costEffectiveness      Int       // Max 15
+  scalability            Int       // Max 15
+  publicImpact           Int       // Max 15
+  implementationReadiness Int      // Max 10
+  totalScore             Int       // Sum of above (Max 100)
+  comments               String
+  createdAt              DateTime  @default(now())
+}
+
+model Pilot {
+  id                       String      @id @default(uuid())
+  challengeId              String
+  startupId                String
+  departmentName           String
+  title                    String
+  startDate                String
+  endDate                  String
+  status                   String      // PENDING, IN_PROGRESS, MID_REVIEW, COMPLETED
+  progress                 Int         // 0 - 100
+  pilotSuccessScore        Int?        // 0 - 100
+  procurementReadinessScore Int?        // 0 - 100
+  blockers                 String?     // JSON array or newline text
+  createdAt                DateTime    @default(now())
+  challenge                Challenge   @relation(fields: [challengeId], references: [id], onDelete: Cascade)
+  startup                  Startup     @relation(fields: [startupId], references: [id], onDelete: Cascade)
+  milestones               Milestone[]
+  kpiItems                 KPI[]
+  decisions                Decision[]
+}
+
+model Milestone {
+  id          String   @id @default(uuid())
+  pilotId     String
+  pilot       Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  targetDate  String
+  status      String   // PENDING, IN_PROGRESS, COMPLETED
+  evidenceUrl String?
+  comments    String?
+}
+
+model KPI {
+  id             String   @id @default(uuid())
+  pilotId        String
+  pilot          Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  name           String
+  baseline       String
+  target         String
+  actual         String
+  achievementPct Int
+  status         String   // PASS, FAIL, IN_PROGRESS
+}
+
+model Decision {
+  id          String   @id @default(uuid())
+  pilotId     String
+  pilot       Pilot    @relation(fields: [pilotId], references: [id], onDelete: Cascade)
+  authorityId String
+  authority   User     @relation(fields: [authorityId], references: [id], onDelete: Cascade)
+  action      String   // PROCEED, IMPROVE, REJECT, EXTEND
+  comments    String
+  timestamp   DateTime @default(now())
+}
+
+model ReuseOpportunity {
+  id              String   @id @default(uuid())
+  solutionTitle   String
+  startupName     String
+  originDept      String
+  targetDept      String
+  targetCity      String
+  similarityScore Int
+  matchingReason  String
+  status          String   // PROPOSED, UNDER_REVIEW, ADOPTED
+  createdAt       DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String
+  userName  String
+  userRole  String
+  action    String
+  details   String
+  timestamp DateTime @default(now())
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  role      String   // ALL, GOVERNMENT, STARTUP, EVALUATOR, DECISION_AUTHORITY
+  title     String
+  message   String
+  link      String?
+  read      Boolean  @default(false)
+  timestamp DateTime @default(now())
+}
